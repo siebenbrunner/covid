@@ -5,6 +5,8 @@ require(reshape2)
 require(dplyr)
 require(wbstats)
 require(ggplot2)
+require(ggforce)
+require(gridExtra)
 
 set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
 covid = read.csv(url(set.url.data))
@@ -133,22 +135,38 @@ data_plot <- ggplot(data = covid) +
 
 ggsave("Log Data.png")
 
+covid$Forecast <- 0
 
-for (c in covid$Country.Region) {
-  
+for (c in levels(covid$Country.Region)) {
+  days <- max(covid[covid$Country.Region == c,"Day"])
   if (logistic_models[c,"Max_Infection_Rate"] > 0.9) {
     function_to_plot <- function(x) exp(exponential_models[c,"Intercept"] + exponential_models[c,"Rate"]*x)
-    maxT <- round(max(covid[covid$Country.Region == c,"Day"]) * 1.25)
+    maxT <- round(days * 1.25)
     
   } else {
     function_to_plot <- function(x) logistic_models[c,"N"]/(1+exp(-(logistic_models[c,"Intercept"]+logistic_models[c,"Rate"]*x)))
-    maxT <- max(covid[covid$Country.Region == c,"Day"]) * 2
+    maxT <- days * 2
   }
   
-  model_plot <- ggplot(data = filter(covid,Country.Region==c)) + 
-    ggtitle(c) + 
-    geom_point( aes(x = Day, y = Confirmed)) +
-    stat_function(fun = function_to_plot) + xlim(0,maxT)
+  # model_plot <- ggplot(data = filter(covid,Country.Region==c)) + 
+  #   ggtitle(c) + 
+  #   geom_point( aes(x = Day, y = Confirmed)) +
+  #   stat_function(fun = function_to_plot) + xlim(0,maxT)
+  # 
+  # ggsave(paste0("./plots/",c,".png"))
   
-  ggsave(paste0(c,".png"))
+  covid[covid$Country.Region==c,"Forecast"] <- function_to_plot(1:days)
+  covid = bind_rows(covid,data.frame(Country.Region = toString(c), Day = (days+1):maxT, Forecast = function_to_plot((days+1):maxT)))
 }
+
+
+pl <- lapply(1:ceiling(nrow(logistic_models)/6), function(x) {
+  ggplot(data = covid) + 
+    facet_wrap_paginate(~ Country.Region, scales='free', ncol = 2, nrow = 3,page=x) + 
+    geom_point(aes(x=Day, y=Confirmed)) +
+    geom_line(aes(x=Day,y=Forecast))
+})
+
+ml <- marrangeGrob(pl, nrow=1, ncol=1)
+ggsave("Model Report.pdf",ml)
+
