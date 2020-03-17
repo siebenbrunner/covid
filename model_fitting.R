@@ -4,6 +4,7 @@
 require(reshape2)
 require(dplyr)
 require(wbstats)
+require(ggplot2)
 
 set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
 covid = read.csv(url(set.url.data))
@@ -24,7 +25,7 @@ for (c in levels(covid$Country.Region)) {
 }
 
 # remove countries with less than x observations
-covid <- dplyr::filter(covid,n()>10)
+covid <- dplyr::filter(covid,n()>20)
 
 # remove countries with no variation
 to_keep <- covid %>% group_by(Country.Region) %>% 
@@ -34,6 +35,12 @@ to_keep <- covid %>% group_by(Country.Region) %>%
 covid <- covid[covid$Country.Region %in% to_keep$Country.Region,]
 
 covid <- droplevels(covid)
+
+# download population data (for logistic models)
+population <- wb(indicator = "SP.POP.TOTL",country = "countries_only", startdate = 2015, enddate = 2020)
+population <- filter(population,date==max(date)) %>% select("Country.Region"="country","Population"="value")
+population[population$Country.Region=="United States",1] <- "US"
+population$Country.Region[population$Country.Region == "Iran, Islamic Rep."] <- c("Iran")
 
 #############################################################
 # Fit exponential models
@@ -54,11 +61,7 @@ for (c in levels(covid$Country.Region)) {
 # Fit logistic models
 #############################################################
 
-# download population data
-population <- wb(indicator = "SP.POP.TOTL",country = "countries_only", startdate = 2015, enddate = 2020)
-population <- filter(population,date==max(date)) %>% select("Country.Region"="country","Population"="value")
-population[population$Country.Region=="United States",1] <- "US"
-
+# merge population data
 covid <- inner_join(covid, population)
 covid$Country.Region <- as.factor(covid$Country.Region)
 covid <- droplevels(covid)
@@ -112,3 +115,40 @@ for (c in levels(covid$Country.Region)) {
   logistic_models[c,"Max_Infection_Rate"] <- N / population_size
 }
 
+#############################################################
+# Make plots
+#############################################################
+
+data_plot <- ggplot(data = covid) + 
+  ggtitle("Covid cases") +
+  facet_wrap(~ Country.Region, scales='free', ncol = 4) + 
+  geom_point(aes(x=Day, y=Confirmed))
+
+ggsave("Raw Data.png")
+
+data_plot <- ggplot(data = covid) + 
+  ggtitle("Covid cases (log scale)") +
+  facet_wrap(~ Country.Region, scales='free', ncol = 4) + 
+  geom_point(aes(x=Day, y=Confirmed)) + scale_y_log10()
+
+ggsave("Log Data.png")
+
+
+for (c in covid$Country.Region) {
+  
+  if (logistic_models[c,"Max_Infection_Rate"] > 0.9) {
+    function_to_plot <- function(x) exp(exponential_models[c,"Intercept"] + exponential_models[c,"Rate"]*x)
+    maxT <- round(max(covid[covid$Country.Region == c,"Day"]) * 1.25)
+    
+  } else {
+    function_to_plot <- function(x) logistic_models[c,"N"]/(1+exp(-(logistic_models[c,"Intercept"]+logistic_models[c,"Rate"]*x)))
+    maxT <- max(covid[covid$Country.Region == c,"Day"]) * 2
+  }
+  
+  model_plot <- ggplot(data = filter(covid,Country.Region==c)) + 
+    ggtitle(c) + 
+    geom_point( aes(x = Day, y = Confirmed)) +
+    stat_function(fun = function_to_plot) + xlim(0,maxT)
+  
+  ggsave(paste0(c,".png"))
+}
