@@ -5,15 +5,15 @@
 ######################################################################
 
 
-sir_1 <- function(beta, gamma, delta, S0, I0, R0, D0, times) {
+sir_1 <- function(beta_0, beta_L, gamma, delta, S0, I0, R0, D0, times, lockdown) {
   require(deSolve) # for the "ode" function
   
   # the differential equations:
   sir_equations <- function(time, variables, parameters) {
     with(as.list(c(variables, parameters)), {
       
-      dS <- -beta * I * S
-      dI <-  beta * I * S - gamma * I - delta * I
+      dS <- -((1-as.numeric(lockdown)) * beta_0 + as.numeric(lockdown) * beta_L) * I * S
+      dI <-  ((1-as.numeric(lockdown)) * beta_0 + as.numeric(lockdown) * beta_L) * I * S - gamma * I - delta * I
       dR <-  gamma * I
       dD <-  delta * I
       return(list(c(dS, dI, dR, dD)))
@@ -21,7 +21,7 @@ sir_1 <- function(beta, gamma, delta, S0, I0, R0, D0, times) {
   }
   
   # the parameters values:
-  parameters_values <- c(beta  = beta, gamma = gamma, delta = delta)
+  parameters_values <- c(beta_0  = beta, beta_L = beta_L, gamma = gamma, delta = delta)
   
   # the initial values of variables:
   initial_values <- c(S = S0, I = I0, R = R0, D = D0)
@@ -34,30 +34,14 @@ sir_1 <- function(beta, gamma, delta, S0, I0, R0, D0, times) {
 }
 
 
-model_fit <- function(beta, gamma, data, N = 763, ...) {
-  I0 <- data$Confirmed[1] # initial number of infected (from data)
-  times <- data$Day   # time points (from data)
-  # model's predictions:
-  predictions <- sir_1(beta = beta, 
-                       gamma = gamma,   # parameters
-                       S0 = N - I0, 
-                       I0 = I0, 
-                       R0 = 0, # variables' intial values
-                       D0 = 0,
-                       times = times)                # time points
-  # plotting the observed prevalences:
-  with(data, plot(Day, Confirmed, ...))
-  # adding the model-predicted prevalence:
-  with(predictions, lines(time, I, col = "red"))
-}
-  
-ss_sir <- function(beta, gamma, delta, data = corona, N = corona$Population[1]) {
+ss_sir <- function(beta_0, beta_L, gamma, delta, data = corona, N = corona$Population[1]) {
   I0 <- data$Confirmed[1]
   times <- data$Day
-  predictions <- sir_1(beta = beta, gamma = gamma, delta = delta,   # parameters
+  lockdown <- data$Lockdown
+  predictions <- sir_1(beta_0 = beta_0, beta_L, beta_L, gamma = gamma, delta = delta,   # parameters
                        S0 = N - I0, I0 = I0, R0 = 0,
                        D0 = 0,# variables' intial values
-                       times = times)                # time points
+                       times = times, lockdown = lockdown)                # time points
  
   sum((predictions$I - data$Confirmed)^2) + 
     sum((predictions$R - data$Recovered)^2) +

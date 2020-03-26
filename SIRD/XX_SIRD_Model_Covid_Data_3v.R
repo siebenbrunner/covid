@@ -37,18 +37,8 @@ corona <- subset(covid, covid$Country.Region == c("Austria"))
 # Step 4: Writing differential equations:
 #####################################################################
 
-sir_equations <- function(time, variables, parameters) {
-  with(as.list(c(variables, parameters)), {
-    dS <- -beta * I * S
-    dI <-  beta * I * S - gamma * I - delta * I
-    dR <-  gamma * I
-    dD <-  delta * I
-    return(list(c(dS, dI, dR, dD)))
-  })
-}
-
-
-predictions <- sir_1(beta = 0.05, 
+predictions <- sir_1(beta_0 = 0.05, 
+                     beta_L = 0.05, 
                      gamma = 0.003,
                      delta = 0.01,
                      S0 = corona$Population[1], 
