@@ -12,8 +12,8 @@ sir_1 <- function(beta_0, beta_L, gamma, delta, S0, I0, R0, D0, times, lockdown)
   sir_equations <- function(time, variables, parameters) {
     with(as.list(c(variables, parameters)), {
       
-      dS <- -((1-as.numeric(lockdown)) * beta_0 + as.numeric(lockdown) * beta_L) * I * S
-      dI <-  ((1-as.numeric(lockdown)) * beta_0 + as.numeric(lockdown) * beta_L) * I * S - gamma * I - delta * I
+      dS <- -((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L) * I * S
+      dI <-  ((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L) * I * S - gamma * I - delta * I
       dR <-  gamma * I
       dD <-  delta * I
       return(list(c(dS, dI, dR, dD)))

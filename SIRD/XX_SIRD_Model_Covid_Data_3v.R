@@ -45,7 +45,8 @@ predictions <- sir_1(beta_0 = 0.05,
                      I0 = 1,
                      D0 = 0,
                      R0 = 0, 
-                     times = corona$Day)
+                     times = corona$Day,
+                     lockdown = corona$Lockdown)
 
 #####################################################################
 # Use function: Optim:
