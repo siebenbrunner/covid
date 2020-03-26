@@ -83,7 +83,7 @@ for (c in levels(covid$Country.Region)) {
   current_cases = max(covid[covid$Country.Region==c,"Confirmed"])
   population_size = max(covid[covid$Country.Region==c,"Population"])
   
-  smaller <- current_cases*2
+  smaller <- current_cases*1.1
   larger <- population_size
   middle <- (current_cases+population_size)/2
   
