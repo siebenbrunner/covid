@@ -12,8 +12,10 @@ sir_1 <- function(beta_0, beta_L, gamma, delta, S0, I0, R0, D0, times, lockdown)
   sir_equations <- function(time, variables, parameters) {
     with(as.list(c(variables, parameters)), {
       
-      dS <- -((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L) * I * S
-      dI <-  ((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L) * I * S - gamma * I - delta * I
+      beta <- ((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L)
+      
+      dS <- -beta * I * S
+      dI <-  beta  * I * S - gamma * I - delta * I
       dR <-  gamma * I
       dD <-  delta * I
       return(list(c(dS, dI, dR, dD)))
@@ -21,7 +23,7 @@ sir_1 <- function(beta_0, beta_L, gamma, delta, S0, I0, R0, D0, times, lockdown)
   }
   
   # the parameters values:
-  parameters_values <- c(beta_0  = beta, beta_L = beta_L, gamma = gamma, delta = delta)
+  parameters_values <- c(beta_0  = beta_0, beta_L = beta_L, gamma = gamma, delta = delta)
   
   # the initial values of variables:
   initial_values <- c(S = S0, I = I0, R = R0, D = D0)
@@ -50,7 +52,7 @@ ss_sir <- function(beta_0, beta_L, gamma, delta, data = corona, N = corona$Popul
 
 
 ss_SIR <- function(x) {
-  ss_sir(beta = x[1], gamma = x[2], delta = x[3])
+  ss_sir(beta_0 = x[1], beta_L = x[2], gamma = x[3], delta = x[4])
 }
 
 # Optimization with nls: not completed

@@ -52,16 +52,17 @@ predictions <- sir_1(beta_0 = 0.05,
 # Use function: Optim:
 #####################################################################
 
-starting_param_val <- c(0.0, 0.0, 0.0)
+starting_param_val <- c(0.0, 0.0, 0.0, 0.0)
 
 ss_optim_sir <- optim(starting_param_val, 
                       ss_SIR)
 ss_optim_sir
 
 
-predictions <- sir_1(beta = ss_optim_sir$par[1], 
-                     gamma = ss_optim_sir$par[2],
-                     delta = ss_optim_sir$par[3],
+predictions <- sir_1(beta_0 = ss_optim_sir$par[1], 
+                     beta_L = ss_optim_sir$par[2], 
+                     gamma = ss_optim_sir$par[3],
+                     delta = ss_optim_sir$par[4],
                      S0 = corona$Population[1], 
                      I0 = 1, 
                      R0 = 0,
