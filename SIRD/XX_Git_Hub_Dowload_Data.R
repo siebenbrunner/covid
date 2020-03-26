@@ -13,7 +13,7 @@ pacman::p_load(tvReg)
 # Covid 19 Confirmed:
 #############################################################
 
-set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
+set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")
 covid = read.csv(url(set.url.data))
 colnames(covid) <- c(colnames(covid)[1:4],1:(ncol(covid)-4))
 covid <- reshape2::melt(covid, id.vars=c("Province.State","Country.Region","Lat","Long"),variable.name="Day",value.name="Confirmed")
@@ -30,7 +30,7 @@ covid <- covid[covid$Confirmed > 0,]
 # Covid 19 Deaths:
 #############################################################
 
-set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Deaths.csv")
+set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")
 covid_deaths = read.csv(url(set.url.data))
 colnames(covid_deaths) <- c(colnames(covid_deaths)[1:4],1:(ncol(covid_deaths)-4))
 covid_deaths <- reshape2::melt(covid_deaths, 
@@ -48,11 +48,11 @@ covid_deaths <- covid_deaths %>% dplyr::group_by(Country.Region,Day) %>% summari
 # Covid 19 Recovered:
 #############################################################
 
-set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Recovered.csv")
+set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")
 covid_recovered = read.csv(url(set.url.data))
 colnames(covid_recovered) <- c(colnames(covid_recovered)[1:4],1:(ncol(covid_recovered)-4))
 covid_recovered <- reshape2::melt(covid_recovered, 
-                               id.vars=c("Province.State","Country.Region","Lat","Long"),
+                               id.vars=c("ï..Province.State","Country.Region","Lat","Long"),
                                variable.name="Day",
                                value.name="Recovered")
 
@@ -93,21 +93,9 @@ population[population$Country.Region=="United States",1] <- "US"
 population$Country.Region[population$Country.Region == "Iran, Islamic Rep."] <- c("Iran")
 
 #############################################################
-# Fit exponential models
+# merge population data
 #############################################################
 
-exponential_models <- data.frame(row.names = levels(covid$Country.Region))
-exponential_models$Intercept = 0
-exponential_models$Rate = 0
-exponential_models$R2 = 0
-
-for (c in levels(covid$Country.Region)) {
-  exp_model <- lm(log(Confirmed) ~ Day,filter(covid,Country.Region==c))
-  exponential_models[c,c("Intercept","Rate")] <- exp_model$coefficients
-  exponential_models[c,"R2"] <- summary(exp_model)$r.squared
-}
-
-# merge population data
 covid <- inner_join(covid, population)
 covid$Country.Region <- as.factor(covid$Country.Region)
 covid <- droplevels(covid)
