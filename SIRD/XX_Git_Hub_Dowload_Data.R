@@ -50,9 +50,9 @@ covid_recovered = read.csv(url(set.url.data))
 colnames(covid_recovered) <- c(colnames(covid_recovered)[1:4],1:(ncol(covid_recovered)-4))
 colnames(covid_recovered)[1] <- "Province"
 covid_recovered <- reshape2::melt(covid_recovered, 
-                               id.vars=c("Province","Country.Region","Lat","Long"),
-                               variable.name="Day",
-                               value.name="Recovered")
+                                  id.vars=c("Province","Country.Region","Lat","Long"),
+                                  variable.name="Day",
+                                  value.name="Recovered")
 
 covid_recovered$Day <- as.numeric(covid_recovered$Day)
 covid_recovered$Country.Region <- as.factor(covid_recovered$Country.Region)
@@ -112,4 +112,3 @@ covid <- droplevels(covid)
 #############################################################
 covid$Lockdown <- 0
 covid[covid$Country.Region=="Austria" & covid$Day >= 20 ,"Lockdown"] <- 1
-

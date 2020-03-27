@@ -33,14 +33,16 @@ source(paste(Corona.path.to.R.Files, "XX_SIR_functions_2v.R", sep = ""))
 
 corona <- subset(covid, covid$Country.Region == c("Austria"))
 
+
+
 #####################################################################
 # Step 4: Writing differential equations:
 #####################################################################
 
-predictions <- sir_1(beta_0 = 0.05, 
-                     beta_L = 0.05, 
-                     gamma = 0.003,
-                     delta = 0.01,
+predictions <- sir_1(beta_0 = 0.00000005, 
+                     beta_L = 0.00000005, 
+                     gamma = 0.0003,
+                     delta = 0.0001,
                      S0 = corona$Population[1], 
                      I0 = 1,
                      D0 = 0,
@@ -52,22 +54,52 @@ predictions <- sir_1(beta_0 = 0.05,
 # Use function: Optim:
 #####################################################################
 
-starting_param_val <- c(0.0, 0.0, 0.0, 0.0)
+starting_param_val <- c(0, 0, 0, 0)
 
-ss_optim_sir <- optim(starting_param_val, 
-                      ss_SIR)
+ss_optim_sir <- optim(par = starting_param_val, 
+                      fn = ss_SIR,
+                      method = c("Nelder-Mead"),
+                      control = list(maxit = 1000000, pgtol = 1e-10)
+                      )
 ss_optim_sir
-
 
 predictions <- sir_1(beta_0 = ss_optim_sir$par[1], 
                      beta_L = ss_optim_sir$par[2], 
                      gamma = ss_optim_sir$par[3],
                      delta = ss_optim_sir$par[4],
                      S0 = corona$Population[1], 
+                     I0 = corona$Confirmed[1], 
+                     R0 = 0,
+                     D0 = 0,
+                     times = corona$Day,
+                     lockdown = corona$Lockdown)
+
+predictions
+
+ss_optim_sir_lower_bound <- optim(par = starting_param_val, 
+                                  fn = ss_SIR,
+                                  lower = 0,
+                                  upper = 1,
+                                  method = c("L-BFGS-B"),
+                                  control = list(maxit = 1000000, pgtol = 1e-10)
+)
+
+ss_optim_sir_lower_bound
+
+
+predictions_lower_bound <- sir_1(beta_0 = ss_optim_sir_lower_bound$par[1], 
+                     beta_L = ss_optim_sir_lower_bound$par[2], 
+                     gamma = ss_optim_sir_lower_bound$par[3],
+                     delta = ss_optim_sir_lower_bound$par[4],
+                     S0 = corona$Population[1], 
                      I0 = 1, 
                      R0 = 0,
                      D0 = 0,
-                     times = corona$Day)
+                     times = corona$Day,
+                     lockdown = corona$Lockdown)
+
+predictions_lower_bound
+
 
 #####################################################################
 # Use function: Optimx:
@@ -124,8 +156,3 @@ predictions <- sir_1(beta = maxlik_estimation[1],
                      I0 = 1, 
                      R0 = 0, 
                      times = corona$Day)
-
-
-
-
-

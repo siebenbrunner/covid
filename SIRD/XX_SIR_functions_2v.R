@@ -12,10 +12,12 @@ sir_1 <- function(beta_0, beta_L, gamma, delta, S0, I0, R0, D0, times, lockdown)
   sir_equations <- function(time, variables, parameters) {
     with(as.list(c(variables, parameters)), {
       
-      beta <- ((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L)
-      
-      dS <- -beta * I * S
-      dI <-  beta  * I * S - gamma * I - delta * I
+      #beta <- ((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L)
+      #R >= 0
+      #D >= 0
+      #S >= 0
+      dS <- -((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L) * I * S
+      dI <-  ((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L)  * I * S - gamma * I - delta * I
       dR <-  gamma * I
       dD <-  delta * I
       return(list(c(dS, dI, dR, dD)))
@@ -29,7 +31,11 @@ sir_1 <- function(beta_0, beta_L, gamma, delta, S0, I0, R0, D0, times, lockdown)
   initial_values <- c(S = S0, I = I0, R = R0, D = D0)
   
   # solving
-  out <- ode(initial_values, times, sir_equations, parameters_values)
+  out <- ode(y = initial_values, 
+             times = times, 
+             func = sir_equations, 
+             parms = parameters_values,
+             method = c("lsode"))
   
   # returning the output:
   as.data.frame(out)
@@ -40,14 +46,13 @@ ss_sir <- function(beta_0, beta_L, gamma, delta, data = corona, N = corona$Popul
   I0 <- data$Confirmed[1]
   times <- data$Day
   lockdown <- data$Lockdown
-  predictions <- sir_1(beta_0 = beta_0, beta_L, beta_L, gamma = gamma, delta = delta,   # parameters
+  predictions <- sir_1(beta_0 = beta_0, beta_L = beta_L, gamma = gamma, delta = delta,   # parameters
                        S0 = N - I0, I0 = I0, R0 = 0,
                        D0 = 0,# variables' intial values
                        times = times, lockdown = lockdown)                # time points
- 
-  sum((predictions$I - data$Confirmed)^2) + 
-    sum((predictions$R - data$Recovered)^2) +
-    sum((predictions$D - data$Deaths)^2)
+  return(sum((predictions$I - data$Confirmed)^2) + 
+         sum((predictions$R - data$Recovered)^2) +
+         sum((predictions$D - data$Deaths)^2))
 }
 
 
@@ -91,9 +96,6 @@ mLL <- function(beta, gamma, delta, sigma_I, sigma_R, sigma_D, Day, Confirmed, R
   # returning minus log-likelihood:
   # this double sum might be incorrect?
   - (sum(dnorm(x = observations, mean = pred_infected, sd = sigma_I, log = TRUE)) +
-     sum(dnorm(x = recovered, mean = pred_recovered, sd = sigma_R, log = TRUE)) +
-     sum(dnorm(x = death, mean = pred_death, sd = sigma_D, log = TRUE)) )   
+       sum(dnorm(x = recovered, mean = pred_recovered, sd = sigma_R, log = TRUE)) +
+       sum(dnorm(x = death, mean = pred_death, sd = sigma_D, log = TRUE)) )   
 }
-
-
-
