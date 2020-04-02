@@ -8,21 +8,40 @@ require(ggplot2)
 require(ggforce)
 require(gridExtra)
 
-set.url.data <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
-covid = read.csv(url(set.url.data))
+only.print.usa <- TRUE
+
 set.url.data.us <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
 covid.us = read.csv(url(set.url.data.us))
 covid.us <- covid.us[,7:ncol(covid.us)]
-covid.us <- covid.us %>% dplyr::rename(Province.State = Province_State, Country.Region = Country_Region) %>%
-  dplyr::select(-Lat,-Long_,-Combined_Key)
-covid <- dplyr::select(covid,-Lat,-Long)
-covid <- reshape2::melt(covid, id.vars=c("Province.State","Country.Region"),variable.name="Day",value.name="Confirmed")
-covid.us <- reshape2::melt(covid.us, id.vars=c("Province.State","Country.Region"),variable.name="Day",value.name="Confirmed")
-covid <- rbind(covid,covid.us)
-covid$Day <- as.numeric(covid$Day)
-covid$Country.Region <- as.factor(covid$Country.Region)
+
+if (only.print.usa) {
+  covid <- covid.us %>% dplyr::rename(Country.Region = Province_State) %>%
+    dplyr::select(-Country_Region,-Lat,-Long_,-Combined_Key)
+  covid <- reshape2::melt(covid, id.vars=c("Country.Region"),variable.name="Day",value.name="Confirmed")
+  # download population data (for logistic models)
+  population = read.csv(url("http://www2.census.gov/programs-surveys/popest/datasets/2010-2019/national/totals/nst-est2019-popchg2010_2019.csv"))
+  population <- dplyr::select(population,Country.Region = NAME, Population = POPESTIMATE2019)
+} else {
+  set.url.data <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
+  covid = read.csv(url(set.url.data))
+  covid <- dplyr::select(covid,-Lat,-Long)
+  covid.us <- covid.us %>% dplyr::rename(Province.State = Province_State, Country.Region = Country_Region) %>%
+    dplyr::select(-Lat,-Long_,-Combined_Key)
+  covid <- reshape2::melt(covid, id.vars=c("Province.State","Country.Region"),variable.name="Day",value.name="Confirmed")
+  covid.us <- reshape2::melt(covid.us, id.vars=c("Province.State","Country.Region"),variable.name="Day",value.name="Confirmed")
+  covid <- rbind(covid,covid.us)
+  
+  # download population data (for logistic models)
+  population <- wb(indicator = "SP.POP.TOTL",country = "countries_only", startdate = 2015, enddate = 2020)
+  population <- filter(population,date==max(date)) %>% select("Country.Region"="country","Population"="value")
+  population[population$Country.Region=="United States",1] <- "US"
+  population$Country.Region[population$Country.Region == "Iran, Islamic Rep."] <- c("Iran")
+  
+}
 
 # aggregate provinces
+covid$Day <- as.numeric(covid$Day)
+covid$Country.Region <- as.factor(covid$Country.Region)
 covid <- covid %>% dplyr::group_by(Country.Region,Day) %>% summarize(Confirmed = sum(Confirmed, na.rm = TRUE))
 
 # unbalance panel: start at first case for each country
@@ -45,12 +64,6 @@ to_keep <- covid %>% group_by(Country.Region) %>%
 covid <- covid[covid$Country.Region %in% to_keep$Country.Region,]
 
 covid <- droplevels(covid)
-
-# download population data (for logistic models)
-population <- wb(indicator = "SP.POP.TOTL",country = "countries_only", startdate = 2015, enddate = 2020)
-population <- filter(population,date==max(date)) %>% select("Country.Region"="country","Population"="value")
-population[population$Country.Region=="United States",1] <- "US"
-population$Country.Region[population$Country.Region == "Iran, Islamic Rep."] <- c("Iran")
 
 #############################################################
 # Fit exponential models
@@ -169,8 +182,8 @@ for (c in levels(covid$Country.Region)) {
 
 
 pl <- lapply(1:ceiling(nrow(logistic_models)/6), function(x) {
-  ggplot(data = covid) + 
-    facet_wrap_paginate(~ Country.Region, scales='free', ncol = 2, nrow = 3,page=x) + 
+  ggplot(data = covid) +
+    facet_wrap_paginate(~ Country.Region, scales='free', ncol = 2, nrow = 3,page=x) +
     geom_point(aes(x=Day, y=Confirmed)) +
     geom_line(aes(x=Day,y=Forecast))
 })
