@@ -8,10 +8,17 @@ require(ggplot2)
 require(ggforce)
 require(gridExtra)
 
-set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_19-covid-Confirmed.csv")
+set.url.data <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
 covid = read.csv(url(set.url.data))
-colnames(covid) <- c(colnames(covid)[1:4],1:(ncol(covid)-4))
-covid <- reshape2::melt(covid, id.vars=c("Province.State","Country.Region","Lat","Long"),variable.name="Day",value.name="Confirmed")
+set.url.data.us <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
+covid.us = read.csv(url(set.url.data.us))
+covid.us <- covid.us[,7:ncol(covid.us)]
+covid.us <- covid.us %>% dplyr::rename(Province.State = Province_State, Country.Region = Country_Region) %>%
+  dplyr::select(-Lat,-Long_,-Combined_Key)
+covid <- dplyr::select(covid,-Lat,-Long)
+covid <- reshape2::melt(covid, id.vars=c("Province.State","Country.Region"),variable.name="Day",value.name="Confirmed")
+covid.us <- reshape2::melt(covid.us, id.vars=c("Province.State","Country.Region"),variable.name="Day",value.name="Confirmed")
+covid <- rbind(covid,covid.us)
 covid$Day <- as.numeric(covid$Day)
 covid$Country.Region <- as.factor(covid$Country.Region)
 
@@ -20,6 +27,7 @@ covid <- covid %>% dplyr::group_by(Country.Region,Day) %>% summarize(Confirmed =
 
 # unbalance panel: start at first case for each country
 covid <- covid[covid$Confirmed > 0,]
+covid <- droplevels(covid)
 
 # renumber days
 for (c in levels(covid$Country.Region)) {
@@ -29,10 +37,10 @@ for (c in levels(covid$Country.Region)) {
 # remove countries with less than x observations
 covid <- dplyr::filter(covid,n()>20)
 
-# remove countries with no variation
+# remove countries with too little variation
 to_keep <- covid %>% group_by(Country.Region) %>% 
   summarize(min_confirmed = min(Confirmed), max_confirmed = max(Confirmed)) %>% 
-  filter(min_confirmed < max_confirmed)
+  filter(min_confirmed + 20 < max_confirmed)
 
 covid <- covid[covid$Country.Region %in% to_keep$Country.Region,]
 
