@@ -8,8 +8,9 @@ require(ggplot2)
 require(ggforce)
 require(gridExtra)
 
-only.print.usa <- TRUE
+only.print.usa <- FALSE
 
+# Download US data
 set.url.data.us <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_US.csv")
 covid.us = read.csv(url(set.url.data.us))
 covid.us <- covid.us[,7:ncol(covid.us)]
@@ -18,10 +19,13 @@ if (only.print.usa) {
   covid <- covid.us %>% dplyr::rename(Country.Region = Province_State) %>%
     dplyr::select(-Country_Region,-Lat,-Long_,-Combined_Key)
   covid <- reshape2::melt(covid, id.vars=c("Country.Region"),variable.name="Day",value.name="Confirmed")
+  
   # download population data (for logistic models)
   population = read.csv(url("http://www2.census.gov/programs-surveys/popest/datasets/2010-2019/national/totals/nst-est2019-popchg2010_2019.csv"))
   population <- dplyr::select(population,Country.Region = NAME, Population = POPESTIMATE2019)
+  
 } else {
+  # Download RoW data
   set.url.data <- "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv"
   covid = read.csv(url(set.url.data))
   covid <- dplyr::select(covid,-Lat,-Long)
@@ -35,6 +39,7 @@ if (only.print.usa) {
   population <- wb(indicator = "SP.POP.TOTL",country = "countries_only", startdate = 2015, enddate = 2020)
   population <- filter(population,date==max(date)) %>% select("Country.Region"="country","Population"="value")
   population[population$Country.Region=="United States",1] <- "US"
+  population[population$Country.Region=="Korea, Rep.",1] <- "Korea, South"
   population$Country.Region[population$Country.Region == "Iran, Islamic Rep."] <- c("Iran")
   
 }
@@ -97,7 +102,7 @@ logistic_models$current_cases = 0
 logistic_models$Max_Infection_Rate = 0
 logistic_models$R2 = 0
 
-# use binary search to find the best N (warning: assuming single peak in the range 2*current_cases:population)
+# use binary search to find the best N (warning: assuming single peak in the range current_cases:population)
 get_fit <- function(N,covid,c) {summary(lm(log(Confirmed/N/(1-Confirmed/N)) ~ Day,filter(covid,Country.Region==c)))$r.squared}
 
 for (c in levels(covid$Country.Region)) {
@@ -138,23 +143,31 @@ for (c in levels(covid$Country.Region)) {
   logistic_models[c,"Max_Infection_Rate"] <- N / population_size
 }
 
+# data.frame(y = rstandard(exp_model),
+#            x = exp_model$fitted.values) %>%
+#   ggplot(aes(x = x, y = y)) +
+#   geom_point() +
+#   geom_hline(yintercept = 0, linetype = "dotted") +
+#   labs(title = "Standardized Residuals vs Fitted Values Plot")
+
+
 #############################################################
 # Make plots
 #############################################################
 
-data_plot <- ggplot(data = covid) + 
-  ggtitle("Covid cases") +
-  facet_wrap(~ Country.Region, scales='free', ncol = 4) + 
-  geom_point(aes(x=Day, y=Confirmed))
-
-ggsave("Raw Data.png")
-
-data_plot <- ggplot(data = covid) + 
-  ggtitle("Covid cases (log scale)") +
-  facet_wrap(~ Country.Region, scales='free', ncol = 4) + 
-  geom_point(aes(x=Day, y=Confirmed)) + scale_y_log10()
-
-ggsave("Log Data.png")
+# data_plot <- ggplot(data = covid) + 
+#   ggtitle("Covid cases") +
+#   facet_wrap(~ Country.Region, scales='free', ncol = 4) + 
+#   geom_point(aes(x=Day, y=Confirmed))
+# 
+# ggsave("Raw Data.png")
+# 
+# data_plot <- ggplot(data = covid) + 
+#   ggtitle("Covid cases (log scale)") +
+#   facet_wrap(~ Country.Region, scales='free', ncol = 4) + 
+#   geom_point(aes(x=Day, y=Confirmed)) + scale_y_log10()
+# 
+# ggsave("Log Data.png")
 
 covid$Forecast <- 0
 
@@ -191,3 +204,8 @@ pl <- lapply(1:ceiling(nrow(logistic_models)/6), function(x) {
 ml <- marrangeGrob(pl, nrow=1, ncol=1)
 ggsave("Model Report.pdf",ml)
 
+ggplot(data = filter(covid,Country.Region %in% c("Italy","Spain","Iran","Korea, South","United Kingdom","US"))) +
+  facet_wrap(~ Country.Region, scales='free', ncol = 2, nrow = 3) +
+  geom_point(aes(x=Day, y=Confirmed)) +
+  geom_line(aes(x=Day,y=Forecast))
+ggsave("MainCountries.png")
