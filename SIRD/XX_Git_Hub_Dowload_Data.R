@@ -119,8 +119,8 @@ for (c in levels(covid$Country.Region)) {
 # data filtering and formatting
 #############################################################
 
-covid$Day <- as.numeric(covid$Day)
-
+covid$Lockdown <- covid$Lockdown / 100
+covid$Lockdown_Lag <- covid$Lockdown_Lag / 100
 
 # unbalance panel: start at first case for each country
 covid <- covid[covid$Confirmed > 0,]
@@ -142,3 +142,4 @@ to_keep <- covid %>% group_by(Country.Region) %>%
 covid <- covid[covid$Country.Region %in% to_keep$Country.Region,]
 
 covid <- droplevels(covid)
+covid$Day <- as.numeric(covid$Day)

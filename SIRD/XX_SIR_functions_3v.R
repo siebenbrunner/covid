@@ -41,46 +41,11 @@ sir_1 <- function(beta_0, beta_L, gamma, delta, S0, I0, R0, D0, times, lockdown)
   as.data.frame(out)
 }
 
-sir_daspk <- function(beta_0, beta_L, gamma, delta, S0, I0, R0, D0, times, lockdown) {
-  
-  require(deSolve) # for the "ode" function
-  
-  # the differential equations:
-  sir_equations_daspk <- function(time, variables, parameters) {
-    with(as.list(c(variables, parameters)), {
-      
-      #beta <- ((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L)
-      #R >= 0
-      #D >= 0
-      #S >= 0
-      dS <- -((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L) * I * S
-      dI <-  ((1-lockdown[time]) * beta_0 + lockdown[time] * beta_L)  * I * S - gamma * I - delta * I
-      dR <-  gamma * I
-      dD <-  delta * I
-      return(list(c(dS, dI, dR, dD),
-                  Population = S + I + R +D))
-    })
-  }
-  
-  # the parameters values:
-  parameters_values <- c(beta_0  = beta_0, beta_L = beta_L, gamma = gamma, delta = delta)
-  
-  # the initial values of variables:
-  initial_values <- c(S = S0, I = I0, R = R0, D = D0)
-  
-  # solving
-  out <- ode(y = initial_values, 
-             times = times, 
-             func = sir_equations, 
-             parms = parameters_values,
-             method = c("lsode"))
-  
-  # returning the output:
-  as.data.frame(out)
-}
-
-
-ss_sir <- function(beta_0, beta_L, gamma, delta, data = corona, N = corona$Population[1]) {
+ss_sir <- function(beta_0, 
+                   beta_L, gamma, 
+                   delta, 
+                   data = corona, 
+                   N = 1) {
   I0 <- data$Confirmed[1]
   times <- data$Day
   lockdown <- data$Lockdown

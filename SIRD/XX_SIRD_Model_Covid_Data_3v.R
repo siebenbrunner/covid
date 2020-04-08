@@ -54,7 +54,7 @@ predictions <- sir_1(beta_0 = 0.00000005,
 # Use function: Optim:
 #####################################################################
 
-starting_param_val <- c(0, 0, 0, 0)
+starting_param_val <- c(0.00000005, 0.00000005, 0.00000005, 0.00000005)
 
 ss_optim_sir <- optim(par = starting_param_val, 
                       fn = ss_SIR,
@@ -76,23 +76,33 @@ predictions <- sir_1(beta_0 = ss_optim_sir$par[1],
 
 predictions
 
-ss_optim_sir_lower_bound <- optim(par = starting_param_val, 
+
+#######################################################################
+# Use optimx with lower and upper bound.
+######################################################################
+starting_param_val <- c(0.0005,0.0005,0,0)
+
+starting_param_val <- ss_optim_sir$par
+
+
+ss_optim_sir_lower_bound <- optimx(par = starting_param_val, 
                                   fn = ss_SIR,
-                                  lower = 0,
-                                  upper = 1,
                                   method = c("L-BFGS-B"),
-                                  control = list(maxit = 1000000, pgtol = 1e-10)
+                                  #all.methods = TRUE,
+                                  lower = 0,
+                                  upper = 0.005,
+                                  control = list(maxit = 1000000, pgtol = 1e-09)
 )
 
 ss_optim_sir_lower_bound
 
 
-predictions_lower_bound <- sir_1(beta_0 = ss_optim_sir_lower_bound$par[1], 
-                     beta_L = ss_optim_sir_lower_bound$par[2], 
-                     gamma = ss_optim_sir_lower_bound$par[3],
-                     delta = ss_optim_sir_lower_bound$par[4],
+predictions_lower_bound <- sir_1(beta_0 = ss_optim_sir_lower_bound$p1, 
+                     beta_L = ss_optim_sir_lower_bound$p2, 
+                     gamma = ss_optim_sir_lower_bound$p3,
+                     delta = ss_optim_sir_lower_bound$p4,
                      S0 = corona$Population[1], 
-                     I0 = 1, 
+                     I0 = corona$Confirmed[1], 
                      R0 = 0,
                      D0 = 0,
                      times = corona$Day,
@@ -123,36 +133,36 @@ predictions <- sir_1(beta = ss_optim_sir2$p1[1],
 
 # does not work very well.
 
-starting_param_val <- list(beta = 0.04, 
-                           gamma = 0.01,
-                           delta = 0.04,
-                           sigma_I = 1, 
-                           sigma_R = 1,
-                           sigma_D = 1)
-
-mLL(beta = 0.004, 
-    gamma =0.5,
-    delta = 0.004,
-    sigma_I = 1,
-    sigma_R = 1,
-    sigma_D = 1,
-    Day = corona$Day,
-    Confirmed = corona$Confirmed,
-    Recovered = corona$Recovered,
-    Deaths = corona$Deaths,
-    Population = corona$Population[1])
-
-estimates <- mle2(minuslogl = mLL, 
-                  start = lapply(starting_param_val, log),
-                  method = "Nelder-Mead", 
-                  data = corona)
-
-# The point estimates (we need to back transform):
-maxlik_estimation <- exp(coef(estimates))
-
-predictions <- sir_1(beta = maxlik_estimation[1], 
-                     gamma = maxlik_estimation[2], 
-                     S0 = corona$Population[1], 
-                     I0 = 1, 
-                     R0 = 0, 
-                     times = corona$Day)
+# starting_param_val <- list(beta = 0.04, 
+#                            gamma = 0.01,
+#                            delta = 0.04,
+#                            sigma_I = 1, 
+#                            sigma_R = 1,
+#                            sigma_D = 1)
+# 
+# mLL(beta = 0.004, 
+#     gamma =0.5,
+#     delta = 0.004,
+#     sigma_I = 1,
+#     sigma_R = 1,
+#     sigma_D = 1,
+#     Day = corona$Day,
+#     Confirmed = corona$Confirmed,
+#     Recovered = corona$Recovered,
+#     Deaths = corona$Deaths,
+#     Population = corona$Population[1])
+# 
+# estimates <- mle2(minuslogl = mLL, 
+#                   start = lapply(starting_param_val, log),
+#                   method = "Nelder-Mead", 
+#                   data = corona)
+# 
+# # The point estimates (we need to back transform):
+# maxlik_estimation <- exp(coef(estimates))
+# 
+# predictions <- sir_1(beta = maxlik_estimation[1], 
+#                      gamma = maxlik_estimation[2], 
+#                      S0 = corona$Population[1], 
+#                      I0 = 1, 
+#                      R0 = 0, 
+#                      times = corona$Day)
