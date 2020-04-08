@@ -15,9 +15,7 @@ pacman::p_load(tvReg)
 
 set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")
 covid = read.csv(url(set.url.data))
-colnames(covid) <- c(colnames(covid)[1:4],1:(ncol(covid)-4))
 covid <- reshape2::melt(covid, id.vars=c("Province.State","Country.Region","Lat","Long"),variable.name="Day",value.name="Confirmed")
-covid$Day <- as.numeric(covid$Day)
 covid$Country.Region <- as.factor(covid$Country.Region)
 
 # aggregate provinces
@@ -29,13 +27,11 @@ covid <- covid %>% dplyr::group_by(Country.Region,Day) %>% summarize(Confirmed =
 
 set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")
 covid_deaths = read.csv(url(set.url.data))
-colnames(covid_deaths) <- c(colnames(covid_deaths)[1:4],1:(ncol(covid_deaths)-4))
 covid_deaths <- reshape2::melt(covid_deaths, 
                                id.vars=c("Province.State","Country.Region","Lat","Long"),
                                variable.name="Day",
                                value.name="Deaths")
 
-covid_deaths$Day <- as.numeric(covid_deaths$Day)
 covid_deaths$Country.Region <- as.factor(covid_deaths$Country.Region)
 
 # aggregate provinces
@@ -47,19 +43,16 @@ covid_deaths <- covid_deaths %>% dplyr::group_by(Country.Region,Day) %>% summari
 
 set.url.data <- c("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv")
 covid_recovered = read.csv(url(set.url.data))
-colnames(covid_recovered) <- c(colnames(covid_recovered)[1:4],1:(ncol(covid_recovered)-4))
 colnames(covid_recovered)[1] <- "Province"
 covid_recovered <- reshape2::melt(covid_recovered, 
                                   id.vars=c("Province","Country.Region","Lat","Long"),
                                   variable.name="Day",
                                   value.name="Recovered")
 
-covid_recovered$Day <- as.numeric(covid_recovered$Day)
 covid_recovered$Country.Region <- as.factor(covid_recovered$Country.Region)
 
 # aggregate provinces
 covid_recovered <- covid_recovered %>% dplyr::group_by(Country.Region,Day) %>% summarize(Recovered = sum(Recovered, na.rm = TRUE))
-
 
 #############################################################
 # Merge Covid Data Sets
@@ -70,6 +63,64 @@ covid_2 <- left_join(covid, covid_deaths)
 covid_3 <- left_join(covid_2, covid_recovered)
 
 covid <- covid_3
+
+#############################################################
+# merge population and lockdown data
+#############################################################
+
+# download population data
+population <- wb(indicator = "SP.POP.TOTL",country = "countries_only", startdate = 2015, enddate = 2020)
+population <- filter(population,date==max(date)) %>% 
+  select("CountryCode" = "iso3c", "Country.Region"="country","Population"="value")
+
+population[population$Country.Region=="United States",1] <- "US"
+population$Country.Region[population$Country.Region == "Iran, Islamic Rep."] <- c("Iran")
+population[population$Country.Region=="Korea, Rep.",1] <- "Korea, South"
+
+# download lockdown data
+lockdowns <- read.csv(url("https://ocgptweb.azurewebsites.net/CSVDownload")) %>% select("CountryCode", "Date", "Lockdown" = "StringencyIndexForDisplay")
+
+# merge lockdown and population data
+lockdowns <- inner_join(population,lockdowns) %>%
+  select("Country.Region", "Day" = "Date", "Population", "Lockdown")
+
+# rename dates
+for (i in 1:nrow(lockdowns)) {
+  new_date <- paste0("X",gsub("(^|[^0-9])0+", "\\1", substr(lockdowns[i,"Day"],5,6), perl = TRUE),".") # Month
+  new_date <- paste0(new_date,gsub("(^|[^0-9])0+", "\\1", substr(lockdowns[i,"Day"],7,8), perl = TRUE),".") # Day
+  new_date <- paste0(new_date,substr(lockdowns[i,"Day"],3,4)) # Year
+  lockdowns[i,"Day"] <- new_date
+}
+
+# merge with covid data
+covid <- left_join(covid, lockdowns) %>% filter(!is.na(Population))
+covid$Country.Region <- as.factor(covid$Country.Region)
+covid <- droplevels(covid)
+
+# remove NAs and add lag
+covid$Lockdown_Lag <- 0
+lag_length <- 10
+covid <- as.data.frame(covid)
+for (c in levels(covid$Country.Region)) {
+  pos <- covid$Country.Region==c
+  for (i in 1:sum(pos)) {
+    if (is.na(covid[pos,"Lockdown"][i])) {
+      if (i==1) {
+        covid[pos,"Lockdown"][i] <- 0
+      } else {
+        covid[pos,"Lockdown"][i] <- covid[pos,"Lockdown"][i-1]
+      }
+    }
+  }
+  covid[pos,"Lockdown_Lag"] <- c(rep(0,lag_length),covid[pos,"Lockdown"][1:(sum(pos)-lag_length)])
+}
+
+#############################################################
+# data filtering and formatting
+#############################################################
+
+covid$Day <- as.numeric(covid$Day)
+
 
 # unbalance panel: start at first case for each country
 covid <- covid[covid$Confirmed > 0,]
@@ -83,32 +134,11 @@ for (c in levels(covid$Country.Region)) {
 # remove countries with less than x observations
 covid <- dplyr::filter(covid,n()>20)
 
-# remove countries with no variation
+# remove countries with not enough variation
 to_keep <- covid %>% group_by(Country.Region) %>% 
   summarize(min_confirmed = min(Confirmed), max_confirmed = max(Confirmed)) %>% 
-  filter(min_confirmed < max_confirmed)
+  filter(min_confirmed + 20 < max_confirmed)
 
 covid <- covid[covid$Country.Region %in% to_keep$Country.Region,]
 
 covid <- droplevels(covid)
-
-#############################################################
-# merge population data
-#############################################################
-
-# download population data (for logistic models)
-population <- wb(indicator = "SP.POP.TOTL",country = "countries_only", startdate = 2015, enddate = 2020)
-population <- filter(population,date==max(date)) %>% select("Country.Region"="country","Population"="value")
-population[population$Country.Region=="United States",1] <- "US"
-population$Country.Region[population$Country.Region == "Iran, Islamic Rep."] <- c("Iran")
-
-covid <- inner_join(covid, population)
-covid$Country.Region <- as.factor(covid$Country.Region)
-covid <- droplevels(covid)
-
-
-#############################################################
-# add lockdown information
-#############################################################
-covid$Lockdown <- 0
-covid[covid$Country.Region=="Austria" & covid$Day >= 20 ,"Lockdown"] <- 1
