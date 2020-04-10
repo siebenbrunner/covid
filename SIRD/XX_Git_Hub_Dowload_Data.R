@@ -115,12 +115,27 @@ for (c in levels(covid$Country.Region)) {
   covid[pos,"Lockdown_Lag"] <- c(rep(0,lag_length),covid[pos,"Lockdown"][1:(sum(pos)-lag_length)])
 }
 
+# rescale lockdown per country:
+max_measures_country <- covid %>% group_by(Country.Region) %>%
+                        summarise_at(c("Lockdown"),
+                                    list(~max(., na.rm = TRUE)))
+
+for (c in levels(covid$Country.Region)){
+
+  covid[covid$Country.Region == c, c("Lockdown_Rescale")] <-
+      covid[covid$Country.Region == c, c("Lockdown")] /
+        as.double(max_measures_country[max_measures_country$Country.Region == c, c("Lockdown")])
+
+  covid[covid$Country.Region == c, c("Lockdown_Lag_Rescale")] <-
+    covid[covid$Country.Region == c, c("Lockdown_Lag")] /
+    as.double(max_measures_country[max_measures_country$Country.Region == c, c("Lockdown")])
+}
+
+
+
 #############################################################
 # data filtering and formatting
 #############################################################
-
-covid$Lockdown <- covid$Lockdown / 100
-covid$Lockdown_Lag <- covid$Lockdown_Lag / 100
 
 # unbalance panel: start at first case for each country
 covid <- covid[covid$Confirmed > 0,]
@@ -142,4 +157,6 @@ to_keep <- covid %>% group_by(Country.Region) %>%
 covid <- covid[covid$Country.Region %in% to_keep$Country.Region,]
 
 covid <- droplevels(covid)
+
 covid$Day <- as.numeric(covid$Day)
+

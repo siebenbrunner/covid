@@ -8,7 +8,7 @@
 # https://rpubs.com/choisy/sir
 
 # Remove all objects:
-rm(list=ls(all=TRUE))
+#rm(list=ls(all=TRUE))
 
 # Server is true/false
 sysinfo <- Sys.info()
@@ -27,7 +27,7 @@ Corona.path.to.R.Files  <-  paste0(dirname(rstudioapi::getSourceEditorContext()$
 # Step 1: Load Covid Data from Github:
 #####################################################################
 
-source(paste(Corona.path.to.R.Files, "XX_Git_Hub_Dowload_Data.R", sep = ""))
+#source(paste(Corona.path.to.R.Files, "XX_Git_Hub_Dowload_Data.R", sep = ""))
 
 covid$Country.Region <- as.character(covid$Country.Region)
 
@@ -134,12 +134,12 @@ corona_models_SIRD <- foreach (r = 1:length(countries_to_fit),
   # Use function: Optim:
   #####################################################################
   
-  starting_param_val <- c(0.25, 0.1, 0.07, 0.0007)
+  starting_param_val <- c(0.15, 0.07, 0.1, 0.01)
   
   ss_optim_sir <- optim(par = starting_param_val, 
                         fn = ss_SIR,
                         method = c("Nelder-Mead"),
-                        control = list(maxit = 1000000, pgtol = 1e-10)
+                        control = list(maxit = 1000000, pgtol = 1e-6)
   )
   
   predictions <- sir_1(beta_0 = ss_optim_sir$par[1], 
@@ -151,7 +151,7 @@ corona_models_SIRD <- foreach (r = 1:length(countries_to_fit),
                        R0 = 0,
                        D0 = 0,
                        times = corona$Day,
-                       lockdown = corona$Lockdown_Lag)
+                       lockdown = corona$Lockdown)
   
   predictions[,c("I", "R", "D")] <- predictions[,c("I", "R", "D")] * corona$Population
                                     
@@ -161,7 +161,7 @@ corona_models_SIRD <- foreach (r = 1:length(countries_to_fit),
   # Use optimx with lower and upper bound.
   ######################################################################
   
-  ss_optim_sir_lower_bound <- optimx(par = starting_param_val, 
+  ss_optim_sir_lower_bound <- optimx(par = ss_optim_sir$par, 
                                      fn = ss_SIR,
                                      method = c("L-BFGS-B"),
                                      #all.methods = TRUE,
