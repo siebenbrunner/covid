@@ -116,7 +116,7 @@ for (c in levels(covid$Country.Region)) {
   smaller_fit <- get_fit(smaller*2,covid,c)
   larger_fit <- get_fit(larger,covid,c)
   
-  for (i in 1:20) {
+  for (i in 1:10) {
     middle_fit <- get_fit(middle,covid,c)
     if (smaller_fit < larger_fit) {
       smaller <- middle
@@ -162,10 +162,10 @@ for (c in levels(covid$Country.Region)) {
 # 
 # ggsave("Raw Data.png")
 # 
-# data_plot <- ggplot(data = covid) + 
-#   ggtitle("Covid cases (log scale)") +
-#   facet_wrap(~ Country.Region, scales='free', ncol = 4) + 
-#   geom_point(aes(x=Day, y=Confirmed)) + scale_y_log10()
+data_plot <- ggplot(data = covid) +
+  ggtitle("Covid cases (log scale)") +
+  facet_wrap(~ Country.Region, scales='free', ncol = 4) +
+  geom_point(aes(x=Day, y=Confirmed)) + scale_y_log10()
 # 
 # ggsave("Log Data.png")
 
@@ -201,10 +201,16 @@ pl <- lapply(1:ceiling(nrow(logistic_models)/6), function(x) {
     geom_line(aes(x=Day,y=Forecast))
 })
 
+
+ggplot(data = covid[covid$Country.Region=="United Kingdom",]) +
+  ggtitle("United Kingdom") + 
+  geom_point(aes(x=Day, y=Confirmed)) +
+  geom_line(aes(x=Day,y=Forecast))
+
 ml <- marrangeGrob(pl, nrow=1, ncol=1)
 ggsave("Model Report.pdf",ml)
 
-ggplot(data = filter(covid,Country.Region %in% c("Italy","Spain","Iran","Korea, South","United Kingdom","US"))) +
+ggplot(data = filter(covid,Country.Region %in% c("China","Italy","Germany","Korea, South","United Kingdom","US"))) +
   facet_wrap(~ Country.Region, scales='free', ncol = 2, nrow = 3) +
   geom_point(aes(x=Day, y=Confirmed)) +
   geom_line(aes(x=Day,y=Forecast))
