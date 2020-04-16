@@ -12,4 +12,4 @@ The model is based on a simple contagion model looking only at the confirmed cas
 
 ## Output
 
-![Example Report](/MainCountries.png)
+![Example Report](/Countries.png)
